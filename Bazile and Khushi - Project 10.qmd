@@ -1,0 +1,189 @@
+---
+title: "Machine Learning - Final project (project 10)"
+author: "Bazile Cédric and Jain Khushi"
+format: pdf
+editor: visual
+---
+
+```{r}
+#Libraries
+here::i_am("Dauphine-ML-project-2024-2025.Rproj")
+library(here)
+library(readr)
+
+## Data management
+library(dplyr)
+library(tidyr)
+library(data.table)
+library(stringr)
+
+
+## Graphics libraries
+library(ggplot2)
+library(scales)
+library(plotly)
+
+## ML
+library(torch)
+```
+
+## Introduction
+
+## Cleaning phase
+
+```{r}
+#Learning data set
+
+## Import data
+learn_df <- read_csv("Data - source/project-10-files/learn_dataset.csv")
+
+##Check for NA
+learn_df %>%  summarise_all(~ sum(is.na(.))) # No missing data
+
+# Test dataset
+## Import data
+test_df <- read_csv("Data - source/project-10-files/learn_dataset.csv")
+any(duplicated(learn_df$KEY_PRIMARY)) 
+
+##Check for NA
+test_df %>%  summarise_all(~ sum(is.na(.))) # No missing data
+any(duplicated(test_df$KEY_PRIMARY)) 
+```
+
+The principal datasets, both from the learning and testing phases, do not contain missing values or duplicates. However, as indicated in the instructions, a large number of missing values exist when adding the additional data on retirement, sports, and jobs.
+
+```{r Create_the_dataframe_learning_data}
+
+# Import additional data
+
+learn_emp_type <- read_csv("Data - source/project-10-files/learn_dataset_emp_type.csv")
+
+learn_job <- read_csv("Data - source/project-10-files/learn_dataset_job.csv")
+
+learn_retired_former <- read_csv("Data - source/project-10-files/learn_dataset_retired_former.csv")
+
+learn_retired_jobs <- read_csv("Data - source/project-10-files/learn_dataset_retired_jobs.csv")
+
+learn_retired_pension <- read_csv("Data - source/project-10-files/learn_dataset_retired_pension.csv")
+
+learn_sport <- read_csv("Data - source/project-10-files/learn_dataset_sport.csv")
+
+# Chekcing for duplicate
+ 
+any(duplicated(learn_emp_type$KEY_PRIMARY))
+any(duplicated(learn_job$KEY_PRIMARY))
+any(duplicated(learn_retired_former$KEY_PRIMARY))
+any(duplicated(learn_retired_jobs$KEY_PRIMARY))
+any(duplicated(learn_retired_pension$KEY_PRIMARY))
+any(duplicated(learn_sport$KEY_PRIMARY))
+# No duplicates found
+
+# Merger with left join
+learn_merged <- learn_df %>%
+  left_join(learn_emp_type, by = "PRIMARY_KEY") %>%
+  left_join(learn_job, by = "PRIMARY_KEY") %>%
+  left_join(learn_retired_former, by = "PRIMARY_KEY") %>%
+  left_join(learn_retired_jobs, by = "PRIMARY_KEY") %>%
+  left_join(learn_retired_pension, by = "PRIMARY_KEY") %>%
+  left_join(learn_sport, by = "PRIMARY_KEY")
+
+# Suppression of the suffix .x and .y
+learn_merged <- learn_merged %>%
+  rename_with(~ str_remove(., "\\.x$|\\.y$"))
+
+```
+
+```{r Create_the_dataframe_test_data}
+
+# Import additional data
+
+test_emp_type <- read_csv("Data - source/project-10-files/test_dataset_emp_type.csv")
+
+test_job <- read_csv("Data - source/project-10-files/test_dataset_job.csv")
+
+test_retired_former <- read_csv("Data - source/project-10-files/test_dataset_retired_former.csv")
+
+test_retired_jobs <- read_csv("Data - source/project-10-files/test_dataset_retired_jobs.csv")
+
+test_retired_pension <- read_csv("Data - source/project-10-files/test_dataset_retired_pension.csv")
+
+test_sport <- read_csv("Data - source/project-10-files/test_dataset_sport.csv")
+
+# Chekcing for duplicate
+ 
+any(duplicated(test_emp_type$KEY_PRIMARY))
+any(duplicated(test_job$KEY_PRIMARY))
+any(duplicated(test_retired_former$KEY_PRIMARY))
+any(duplicated(test_retired_jobs$KEY_PRIMARY))
+any(duplicated(test_retired_pension$KEY_PRIMARY))
+any(duplicated(test_sport$KEY_PRIMARY))
+# No duplicates found
+
+# Merger with left join
+test_merged <- test_df %>%
+  left_join(test_emp_type, by = "PRIMARY_KEY") %>%
+  left_join(test_job, by = "PRIMARY_KEY") %>%
+  left_join(test_retired_former, by = "PRIMARY_KEY") %>%
+  left_join(test_retired_jobs, by = "PRIMARY_KEY") %>%
+  left_join(test_retired_pension, by = "PRIMARY_KEY") %>%
+  left_join(test_sport, by = "PRIMARY_KEY")
+
+
+```
+
+```{r NA_tables}
+
+# List of the column of the main dataset : this list will be used to keep only columns of the additional dataset in order to see the number and frequency of NA
+learn_original_columns <- colnames(learn_df)
+test_original_columns <- colnames(test_df)
+
+# Learning set : Number of NA for each column
+learn_na_count <- learn_merged %>%
+  select(-all_of(learn_original_columns)) %>%  
+  summarise(across(everything(), ~ as.integer(sum(is.na(.))))) %>%
+  mutate(Statistics = "Learning set : count")  # Addition of a column to name the created statistics
+
+# Learning set : % of NA for each colummn
+learn_na_percentage <- learn_merged %>%
+  select(-all_of(learn_original_columns)) %>%  
+  summarise(across(everything(), ~ as.integer(mean(is.na(.))*100))) %>%
+  mutate(Statistics = "Learning set : percentage")  
+
+# Test set : Number of NA for each column
+test_na_count <- test_merged %>%
+  select(-all_of(test_original_columns)) %>%  
+  summarise(across(everything(), ~ as.integer(sum(is.na(.))))) %>%
+  mutate(Statistics = "Test set : count")  # Addition of a column to indicate the stat
+
+# Test set : % of NA for each colummn
+test_na_percentage <- test_merged %>%
+  select(-all_of(test_original_columns)) %>%  
+  summarise(across(everything(), ~ as.integer(mean(is.na(.))*100))) %>%
+  mutate(Statistics = "Test set : percentage") 
+
+# Creation of the final table
+na_sum_table <- bind_rows(learn_na_count, learn_na_percentage, test_na_count, test_na_percentage) %>% 
+  relocate(Statistics, .before = everything())
+
+print(na_sum_table)
+```
+
+## Descriptive Statistics
+
+When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
+
+```{r}
+
+
+
+
+```
+
+You can add options to executable code like this
+
+```{r}
+#| echo: false
+2 * 2
+```
+
+The `echo: false` option disables the printing of code (only output is displayed).
